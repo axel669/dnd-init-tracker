@@ -41,6 +41,12 @@ doric.Button = (() => {
         "doric-button-content": {
             flexGrow: 1,
             textAlign: 'center'
+        },
+        "doric-button[block='true']": {
+            display: 'flex'
+        },
+        "doric-button[color='primary']": {
+            backgroundColor: ''
         }
     });
 
