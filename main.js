@@ -31,8 +31,6 @@ sheet.addStyles({
     }
 });
 
-sheet.attach();
-
 const dialog = (() => {
     const dialogRoot = document.createElement('div');
     dialogRoot.style.position = 'absolute';
@@ -144,7 +142,21 @@ class Tracker2 extends doric.AutoUpdateCheck {
 
         return (
             <div>
-                <doric.Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" />
+                <doric.Grid>
+                    <doric.GridCol size={2}>1</doric.GridCol>
+                    <doric.GridCol offset={2}>1</doric.GridCol>
+                    <doric.GridCol offset={1} size={3}>1</doric.GridCol>
+
+                    <doric.GridBreak />
+
+                    <doric.GridCol>1</doric.GridCol>
+                    <doric.GridCol>1</doric.GridCol>
+                    <doric.GridCol>1</doric.GridCol>
+                    {/* {(0).to(12).map(
+                        i => <doric.GridCol offset={i}>{i}</doric.GridCol>
+                    )} */}
+                </doric.Grid>
+                <doric.Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" block />
                 <doric.Select value={name} onChange={this.changeName}>
                     <option value="" hidden>Name</option>
                     <optgroup label="Allies">
@@ -162,8 +174,8 @@ class Tracker2 extends doric.AutoUpdateCheck {
                 <doric.Select value={init} onChange={this.update('init')}>
                     {new Array(41).fill(0).map((a, i) => <option value={i - 10}>{i - 10}</option>)}
                 </doric.Select>
-                <doric.Button onTap={this.add}>Add</doric.Button>
-                <doric.Button onTap={this.sort} text="Sort" />
+                <doric.Button onTap={this.add} text="Add" block />
+                <doric.Button onTap={this.sort} text="Sort" block />
                 {inits.map(
                     item => <div>{item.name} - {item.init}</div>
                 )}
@@ -171,6 +183,54 @@ class Tracker2 extends doric.AutoUpdateCheck {
         );
     }
 }
+
+const makeDobuleTap = (source, dbltap) => {
+    let prevTap = 0;
+
+    return (...args) => {
+        source(...args);
+        const now = Date.now();
+        if (now - prevTap < 300) {
+            dbltap(...args);
+            prevTap = 0;
+        }
+        else {
+            prevTap = now;
+        }
+    };
+};
+
+sheet.addStyles({
+    "test": {
+        display: 'none',
+        position: 'fixed',
+        right: 0,
+        bottom: 0,
+        left: 0,
+        height: 50,
+        backgroundColor: 'green'
+    },
+    "div:focus > test": {
+        display: 'block'
+    }
+});
+const DBLTAP = (props) => {
+    const passedOnTap = props.onTap || (() => {});
+    const onHold = props.onHold || (() => {});
+    const onTap = makeDobuleTap(
+        passedOnTap,
+        evt => {
+            console.log('double tap!');
+        }
+    );
+
+    return (
+        <div tabIndex="0" onContextMenu={evt => evt.preventDefault()} style={{width: 50, height: 50, backgroundColor: 'cyan'}}>
+            <doric.CustomListeners listeners={{onTap, onHold}} />
+            <test />
+        </div>
+    );
+};
 
 class AllyScreen extends doric.AutoUpdateCheck {
     constructor(props) {
@@ -192,6 +252,7 @@ class AllyScreen extends doric.AutoUpdateCheck {
 
         return (
             <div>
+                <DBLTAP onTap={() => console.log('tap!')} onHold={evt => console.log('hold!')} />
                 <doric.Button onTap={this.toMain} text="Back" />
                 <br />
                 <doric.Button onTap={this.add} text="Add Ally" />
@@ -226,6 +287,7 @@ class ScreenChanger extends React.Component {
     }
 }
 
+sheet.attach();
 ReactDOM.render(
     <ScreenChanger />,
     document.querySelector("app-root")

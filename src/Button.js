@@ -44,9 +44,6 @@ doric.Button = (() => {
         },
         "doric-button[block='true']": {
             display: 'flex'
-        },
-        "doric-button[color='primary']": {
-            backgroundColor: ''
         }
     });
 
