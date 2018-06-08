@@ -143,39 +143,43 @@ class Tracker2 extends doric.AutoUpdateCheck {
         return (
             <div>
                 <doric.Grid>
-                    <doric.GridCol size={2}>1</doric.GridCol>
-                    <doric.GridCol offset={2}>1</doric.GridCol>
-                    <doric.GridCol offset={1} size={3}>1</doric.GridCol>
+                    <doric.Col size={12}>
+                        <doric.Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" block />
+                    </doric.Col>
 
-                    <doric.GridBreak />
+                    <doric.Col size={6}>Name</doric.Col>
+                    <doric.Col size={6}>Initiative</doric.Col>
 
-                    <doric.GridCol>1</doric.GridCol>
-                    <doric.GridCol>1</doric.GridCol>
-                    <doric.GridCol>1</doric.GridCol>
-                    {/* {(0).to(12).map(
-                        i => <doric.GridCol offset={i}>{i}</doric.GridCol>
-                    )} */}
+                    <doric.Col size={6}>
+                        <doric.Select value={name} onChange={this.changeName}>
+                            <option value="" hidden>Name</option>
+                            <optgroup label="Allies">
+                                {allyList.map(
+                                    ally => <option value={`ally:${ally}`}>{ally}</option>
+                                )}
+                            </optgroup>
+                            <optgroup label="Enemies">
+                                <option value=":new-enemy">New Enemy</option>
+                                {enemyList.map(
+                                    enemy => <option value={`enem:${enemy}`}>{enemy}</option>
+                                )}
+                            </optgroup>
+                        </doric.Select>
+                    </doric.Col>
+                    <doric.Col size={6}>
+                        <doric.Select value={init} onChange={this.update('init')}>
+                            {new Array(41).fill(0).map((a, i) => <option value={i - 10}>{i - 10}</option>)}
+                        </doric.Select>
+                    </doric.Col>
+
+                    <doric.Col size={4} offset={2}>
+                        <doric.Button onTap={this.add} primary text="Add" block />
+                    </doric.Col>
+                    <doric.Col size={4}>
+                        <doric.Button onTap={this.sort} primary text="Sort" block />
+                    </doric.Col>
                 </doric.Grid>
-                <doric.Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" block />
-                <doric.Select value={name} onChange={this.changeName}>
-                    <option value="" hidden>Name</option>
-                    <optgroup label="Allies">
-                        {allyList.map(
-                            ally => <option value={`ally:${ally}`}>{ally}</option>
-                        )}
-                    </optgroup>
-                    <optgroup label="Enemies">
-                        <option value=":new-enemy">New Enemy</option>
-                        {enemyList.map(
-                            enemy => <option value={`enem:${enemy}`}>{enemy}</option>
-                        )}
-                    </optgroup>
-                </doric.Select>
-                <doric.Select value={init} onChange={this.update('init')}>
-                    {new Array(41).fill(0).map((a, i) => <option value={i - 10}>{i - 10}</option>)}
-                </doric.Select>
-                <doric.Button onTap={this.add} text="Add" block />
-                <doric.Button onTap={this.sort} text="Sort" block />
+
                 {inits.map(
                     item => <div>{item.name} - {item.init}</div>
                 )}

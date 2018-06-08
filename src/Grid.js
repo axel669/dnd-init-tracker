@@ -38,7 +38,7 @@ doric.Grid = (() => {
         );
     };
 })();
-doric.GridCol = ({size = 1, offset = null, ...props}) => {
+doric.Col = ({size = 1, offset = null, ...props}) => {
     let className = `w${size}`;
     if (offset !== null) {
         className = `${className} offset${offset}`;
