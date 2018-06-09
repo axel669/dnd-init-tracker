@@ -1,35 +1,18 @@
-sheet.addStyles({
-    "html, body": {
-        padding: 0,
-        margin: 0,
-        width: '100%',
-        height: '100%'
-    },
-    "body": {
-        backgroundColor: '#000',
-        color: 'white',
-        fontFamily: 'Roboto',
-        fontSize: 16
-    },
-    "*": {
-        boxSizing: 'border-box'
-    },
-    "input[type='text']": {
-        backgroundColor: 'transparent',
-        borderWidth: 0,
-        borderBottom: '2px solid white',
-        color: 'white',
-        display: 'block',
-        width: '100%',
-        height: 25
-    },
-    "button": {
-        borderRadius: 0,
-        border: '1px solid white',
-        backgroundColor: 'transparent',
-        color: 'white'
-    }
-});
+import 'gesturesjs';
+
+import React from 'react';
+import ReactDOM from 'react-dom';
+
+import sheet from 'style';
+
+import AutoUpdateCheck from 'src/AutoUpdateCheck';
+import Button from 'src/Button';
+import CustomListeners from 'src/CustomListeners';
+import {Grid, GridBreak, Col} from 'src/Grid';
+import Select from 'src/Select';
+
+import update from 'update';
+import store from 'store/store';
 
 const dialog = (() => {
     const dialogRoot = document.createElement('div');
@@ -100,11 +83,12 @@ store.subscribe(
     }
 );
 
-class Tracker2 extends doric.AutoUpdateCheck {
+const defaultState = () => ({name: '', init: '-'});
+class Tracker2 extends AutoUpdateCheck {
     constructor(props) {
         super(props);
         this.propList = ['allyList', 'enemyList', 'inits'];
-        this.state = {name: '', init: 10};
+        this.state = defaultState();
     }
 
     update = name =>
@@ -122,16 +106,16 @@ class Tracker2 extends doric.AutoUpdateCheck {
             if (value === null || value.trim() === '') {
                 return;
             }
+            actions.enemy.add(value).dispatch();
         }
-        actions.enemy.add(value).dispatch();
-        this.setState(() => ({name: `enem:${value}`}));
+        this.setState(() => ({name: value}));
     }
 
     add = () => {
         const {name, init} = this.state;
         const status = name.slice(0, 4);
         const realName = name.slice(5);
-        this.setState(() => ({name: '', init: 10}));
+        this.setState(defaultState);
         actions.inits.add(realName, init, status).dispatch();
     }
     sort = () => actions.inits.sort().dispatch()
@@ -142,16 +126,16 @@ class Tracker2 extends doric.AutoUpdateCheck {
 
         return (
             <div>
-                <doric.Grid>
-                    <doric.Col size={12}>
-                        <doric.Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" block />
-                    </doric.Col>
+                <Grid>
+                    <Col size={12}>
+                        <Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" block />
+                    </Col>
 
-                    <doric.Col size={6}>Name</doric.Col>
-                    <doric.Col size={6}>Initiative</doric.Col>
+                    <Col size={6}>Name</Col>
+                    <Col size={6}>Initiative</Col>
 
-                    <doric.Col size={6}>
-                        <doric.Select value={name} onChange={this.changeName}>
+                    <Col size={6}>
+                        <Select value={name} onChange={this.changeName}>
                             <option value="" hidden>Name</option>
                             <optgroup label="Allies">
                                 {allyList.map(
@@ -164,21 +148,21 @@ class Tracker2 extends doric.AutoUpdateCheck {
                                     enemy => <option value={`enem:${enemy}`}>{enemy}</option>
                                 )}
                             </optgroup>
-                        </doric.Select>
-                    </doric.Col>
-                    <doric.Col size={6}>
-                        <doric.Select value={init} onChange={this.update('init')}>
+                        </Select>
+                    </Col>
+                    <Col size={6}>
+                        <Select value={init} onChange={this.update('init')}>
                             {new Array(41).fill(0).map((a, i) => <option value={i - 10}>{i - 10}</option>)}
-                        </doric.Select>
-                    </doric.Col>
+                        </Select>
+                    </Col>
 
-                    <doric.Col size={4} offset={2}>
-                        <doric.Button onTap={this.add} primary text="Add" block />
-                    </doric.Col>
-                    <doric.Col size={4}>
-                        <doric.Button onTap={this.sort} primary text="Sort" block />
-                    </doric.Col>
-                </doric.Grid>
+                    <Col size={4} offset={2}>
+                        <Button onTap={this.add} primary text="Add" block />
+                    </Col>
+                    <Col size={4}>
+                        <Button onTap={this.sort} primary text="Sort" block />
+                    </Col>
+                </Grid>
 
                 {inits.map(
                     item => <div>{item.name} - {item.init}</div>
@@ -230,13 +214,13 @@ const DBLTAP = (props) => {
 
     return (
         <div tabIndex="0" onContextMenu={evt => evt.preventDefault()} style={{width: 50, height: 50, backgroundColor: 'cyan'}}>
-            <doric.CustomListeners listeners={{onTap, onHold}} />
+            <CustomListeners listeners={{onTap, onHold}} />
             <test />
         </div>
     );
 };
 
-class AllyScreen extends doric.AutoUpdateCheck {
+class AllyScreen extends AutoUpdateCheck {
     constructor(props) {
         super(props);
         this.propList = ['allyList'];
@@ -257,9 +241,9 @@ class AllyScreen extends doric.AutoUpdateCheck {
         return (
             <div>
                 <DBLTAP onTap={() => console.log('tap!')} onHold={evt => console.log('hold!')} />
-                <doric.Button onTap={this.toMain} text="Back" />
+                <Button onTap={this.toMain} text="Back" />
                 <br />
-                <doric.Button onTap={this.add} text="Add Ally" />
+                <Button onTap={this.add} text="Add Ally" />
                 <div>
                     {allyList.map(
                         name => <div>{name}</div>
