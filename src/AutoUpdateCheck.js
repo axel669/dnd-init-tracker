@@ -1,6 +1,8 @@
 import React from 'react';
 
-class AutoUpdateCheck extends React.Component {
+import DoricComponent from 'src/DoricComponent';
+
+class AutoUpdateCheck extends DoricComponent {
     constructor(props) {
         super(props);
     }

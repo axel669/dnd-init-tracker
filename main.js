@@ -14,6 +14,8 @@ import Select from 'src/Select';
 import update from 'update';
 import store from 'store/store';
 
+import Main from 'screen/Main';
+
 const dialog = (() => {
     const dialogRoot = document.createElement('div');
     dialogRoot.style.position = 'absolute';
@@ -82,95 +84,6 @@ store.subscribe(
         );
     }
 );
-
-const defaultState = () => ({name: '', init: '-'});
-class Tracker2 extends AutoUpdateCheck {
-    constructor(props) {
-        super(props);
-        this.propList = ['allyList', 'enemyList', 'inits'];
-        this.state = defaultState();
-    }
-
-    update = name =>
-        evt => {
-            const value = evt.target.value;
-            this.setState(
-                () => ({[name]: value})
-            )
-        }
-
-    changeName = evt => {
-        let value = evt.target.value;
-        if (value === ':new-enemy') {
-            value = prompt("Enemy Name", "");
-            if (value === null || value.trim() === '') {
-                return;
-            }
-            actions.enemy.add(value).dispatch();
-        }
-        this.setState(() => ({name: value}));
-    }
-
-    add = () => {
-        const {name, init} = this.state;
-        const status = name.slice(0, 4);
-        const realName = name.slice(5);
-        this.setState(defaultState);
-        actions.inits.add(realName, init, status).dispatch();
-    }
-    sort = () => actions.inits.sort().dispatch()
-
-    render = () => {
-        const {name, init} = this.state;
-        const {allyList, enemyList, inits} = this.props;
-
-        return (
-            <div>
-                <Grid>
-                    <Col size={12}>
-                        <Button onTap={() => actions.screen.set('ally').dispatch()} text="Ally List" block />
-                    </Col>
-
-                    <Col size={6}>Name</Col>
-                    <Col size={6}>Initiative</Col>
-
-                    <Col size={6}>
-                        <Select value={name} onChange={this.changeName}>
-                            <option value="" hidden>Name</option>
-                            <optgroup label="Allies">
-                                {allyList.map(
-                                    ally => <option value={`ally:${ally}`}>{ally}</option>
-                                )}
-                            </optgroup>
-                            <optgroup label="Enemies">
-                                <option value=":new-enemy">New Enemy</option>
-                                {enemyList.map(
-                                    enemy => <option value={`enem:${enemy}`}>{enemy}</option>
-                                )}
-                            </optgroup>
-                        </Select>
-                    </Col>
-                    <Col size={6}>
-                        <Select value={init} onChange={this.update('init')}>
-                            {new Array(41).fill(0).map((a, i) => <option value={i - 10}>{i - 10}</option>)}
-                        </Select>
-                    </Col>
-
-                    <Col size={4} offset={2}>
-                        <Button onTap={this.add} primary text="Add" block />
-                    </Col>
-                    <Col size={4}>
-                        <Button onTap={this.sort} primary text="Sort" block />
-                    </Col>
-                </Grid>
-
-                {inits.map(
-                    item => <div>{item.name} - {item.init}</div>
-                )}
-            </div>
-        );
-    }
-}
 
 const makeDobuleTap = (source, dbltap) => {
     let prevTap = 0;
@@ -255,7 +168,7 @@ class AllyScreen extends AutoUpdateCheck {
 }
 
 const screens = {
-    main: Tracker2,
+    main: Main,
     ally: AllyScreen
 };
 
