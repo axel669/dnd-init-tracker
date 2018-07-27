@@ -4,38 +4,88 @@ import update from 'immutable-update-values';
 
 import storage from '../storage.js';
 
-const inits = batchReducer(
-    (state = [], action) => {
-        switch (action.type) {
-            case 'inits.push':
-                return update(state, {$push: action.entity});
+const storageBackup = (name, reducer) =>
+    (state, action) => {
+        const initialState = state;
+        const newState = reducer(state, action);
+
+        if (initialState !== newState) {
+            storage.write(name, newState);
         }
 
-        return state;
-    }
-);
+        return newState;
+    };
 
-const players = (state = [], action) => {
-    let newState = state;
-    switch (action.type) {
-        case 'players.add':
-            newState = update(state, {$push: action.player});
-            break;
-    }
+const inits = storageBackup('inits', batchReducer(
+    (state = null, action) => {
+        let newState = state;
 
-    if (newState !== state) {
-        storage.write("players", newState);
-    }
+        if (newState === null) {
+            newState = {};
+        }
 
-    return newState;
-};
+        switch (action.type) {
+            case 'inits.push':
+                newState = update(newState, {$push: action.entity});
+                break;
+        }
+
+        return newState;
+    }
+));
+
+// const players = storageBackup('players', batchReducer(
+//     (state = null, action) => {
+//         let newState = state;
+//
+//         if (newState === null) {
+//             newState = storage.read("players", []);
+//         }
+//
+//         switch (action.type) {
+//             case 'players.add':
+//                 newState = update(state, {$push: action.player});
+//                 break;
+//         }
+//
+//         return newState;
+//     }
+// ));
+
+const party = storageBackup('party', batchReducer(
+    (state = null, action) => {
+        let newState = state;
+
+        if (newState === null) {
+            newState = storage.read("party", {});
+        }
+
+        switch (action.type) {
+            case 'party.new': {
+                newState = update(
+                    newState,
+                    {[`${action.party}.$set`]: []}
+                );
+                break;
+            }
+
+            case 'party.add': {
+                newState = update(
+                    newState,
+                    {[`${action.party}.$push`]: action.name}
+                );
+                break;
+            }
+        }
+
+        return newState;
+    }
+));
 
 export default createStore(
     combineReducers({
         inits,
-        players
-    }),
-    {
-        players: storage.read('players', [])
-    }
+        // players,
+        party
+    })
 );
