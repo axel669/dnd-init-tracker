@@ -6,13 +6,13 @@ export default ({children, ...props}) => {
     children = React.Children.toArray(children);
 
     const mapped = children.map(
-        child => {
+        (child, index) => {
             if (child.type === doric.grid.break) {
                 return child;
             }
             const size = child.props['grid-size'];
             return (
-                <doric.grid.col size={size}>
+                <doric.grid.col size={size} key={index}>
                     {child}
                 </doric.grid.col>
             );

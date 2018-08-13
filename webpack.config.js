@@ -4,8 +4,9 @@ module.exports = {
         filename: 'app.js',
         path: __dirname
     },
-    devtool: 'inline-source-map',
-    mode: 'development',
+    // devtool: 'inline-source-map',
+    // mode: 'development',
+    mode: 'production',
     node: {
         global: false
     },
