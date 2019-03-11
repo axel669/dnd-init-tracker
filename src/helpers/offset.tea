@@ -1,0 +1,23 @@
+let disp = (offset) => (offset < 0)
+    ? "-".repeat(-offset)
+    : "+".repeat(offset)
+let parse = (str) => {
+    let [*, strValue, plus, minus] = str.match(/(\d+)(\++)?(\-+)?/)
+
+    let init = parseInt(strValue)
+    let offset = switch {
+        case plus == void && minus == void {
+            break 0
+        }
+        case plus != void {
+            break plus.length
+        }
+        default {
+            break 0 - minus.length
+        }
+    }
+
+    return {init, offset}
+}
+
+export default {disp, parse}

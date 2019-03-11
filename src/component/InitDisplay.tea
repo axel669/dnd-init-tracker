@@ -1,0 +1,8 @@
+import offset from "../helpers/offset.tea"
+
+let InitDisplay = ({item}) => <doric.grid cols=5>
+    <div>{item.init}{offset.disp(item.offset)}</div>
+    <div gcolspan=4>{item.name}</div>
+</doric.grid>
+
+export default InitDisplay

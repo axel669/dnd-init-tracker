@@ -1,0 +1,45 @@
+import sorts from "./helpers/sorts.tea"
+import storage from "./helpers/storage.tea"
+
+let sortInit = sorts.compose(
+    sorts.prop(".init", sorts.reverse(sorts.number))
+    sorts.prop(".offset", sorts.reverse(sorts.number))
+)
+let {actions, ...store} = Norn(
+    {
+        inits: {
+            initial() => storage.read("inits", [])
+            $add(inits, {type, ...init}) => {
+                let newInits = [
+                    ...inits
+                    init
+                ].sort(sortInit)
+
+                return newInits
+            }
+            $update(inits, {type, id, ...info}) => {
+                let index = inits.findIndex((i) => i.id == id)
+
+                return immutableUpdate(
+                    [...inits]
+                    {
+                        `${index}.$apply`(value) => {...value, ...info}
+                    }
+                ).sort(sortInit)
+            }
+            $remove(inits, {id}) => inits.filter(
+                (init) => init.id != id
+            )
+        }
+    }
+    {
+        "inits.$add"(name, init) => {name, init, offset: 0, id: Date.now()}
+        "inits.$update"(id, info, name) => {id, ...info, name}
+        "inits.$remove"(id) => {id}
+    }
+)
+store.subscribe(
+    ({inits}) => storage.write("inits", inits)
+)
+
+export {actions, store}

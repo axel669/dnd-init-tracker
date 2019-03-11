@@ -1,0 +1,57 @@
+import {actions} from "../store.tea"
+import offset from "../helpers/offset.tea"
+
+class CreatureEdit extends React.Component {
+    constructor(props) => {
+        super(props)
+        @state = {
+            name: @props.item.name
+            init: `${@props.item.init}${offset.disp(@props.item.offset)}`
+        }
+    }
+
+    componentDidMount() => {
+        @input.focus()
+    }
+
+    render() => {
+        let {name, init} = @state
+
+        let cancel = () => @props.close(null)
+        let save = () => @props.close(@state)
+        let remove = () => {
+            let confirmed = await doric.dialog.confirm("Remove from combat?")
+
+            if confirmed == true {
+                actions."inits.$remove"(@props.item.id)
+                @props.close(null)
+            }
+        }
+
+        let update = (name) =>
+            (evt) => @setState({[name]: evt.target.value})
+        let ref = (domInput) => {
+            @input = domInput
+        }
+
+        return <alert-dialog>
+            <alert-content wide>
+                <doric.input label="Name" value=name onChange=update("name") />
+                <doric.input domRef=ref label="Initiative" value=init onChange=update("init") />
+            </alert-content>
+            <doric.grid cols=3>
+                <doric.button block danger flat onTap=cancel>
+                    <ion-icons class="ion-md-close" />
+                </doric.button>
+                <doric.button block danger onTap=remove>
+                    <ion-icons class="ion-md-trash" />
+                </doric.button>
+                <doric.button block primary onTap=save>
+                    <ion-icons class="ion-md-save" />
+                </doric.button>
+            </doric.grid>
+        </alert-dialog>
+    }
+}
+
+export default CreatureEdit

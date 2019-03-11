@@ -1,0 +1,15 @@
+export default {
+    read(name, defValue) => {
+        let source = localStorage.getItem(name)
+
+        if source == null {
+            return defValue
+        }
+
+        return JSON.parse(source)
+    }
+    write(name, data) => localStorage.setItem(
+        name
+        JSON.stringify(data)
+    )
+}

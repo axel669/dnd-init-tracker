@@ -1,0 +1,24 @@
+{
+  "name": "dnd-init-tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axel669/dnd-init-tracker.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/axel669/dnd-init-tracker/issues"
+  },
+  "homepage": "https://github.com/axel669/dnd-init-tracker#readme",
+  "dependencies": {
+    "@axel669/teascript": "^0.14.4",
+    "rollup": "^1.6.0"
+  }
+}
