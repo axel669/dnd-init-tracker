@@ -17,8 +17,23 @@
     "url": "https://github.com/axel669/dnd-init-tracker/issues"
   },
   "homepage": "https://github.com/axel669/dnd-init-tracker#readme",
-  "dependencies": {
-    "@axel669/teascript": "^0.14.4",
-    "rollup": "^1.6.0"
+  "devDependencies": {
+    "@axel669/array-sort": "^0.1.0",
+    "@axel669/immutable-update": "^0.3.0",
+    "@axel669/range": "^1.0.0",
+    "@axel669/rollup-plugin-path-alias": "^1.1.0",
+    "@babel/cli": "^7.4.4",
+    "@babel/core": "^7.4.3",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.4.3",
+    "@babel/plugin-proposal-optional-chaining": "^7.2.0",
+    "@babel/plugin-transform-react-jsx": "^7.3.0",
+    "babel-plugin-search-and-replace": "^1.0.0",
+    "rollup": "^1.9.0",
+    "rollup-plugin-babel": "^4.3.2",
+    "rollup-plugin-commonjs": "^9.2.0",
+    "rollup-plugin-json": "^4.0.0",
+    "rollup-plugin-node-resolve": "^4.0.0",
+    "rollup-plugin-terser": "^4.0.4",
+    "ssjs": "^2.0.2"
   }
 }

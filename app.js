@@ -1,5 +1,9 @@
-(function () {
+(function (React, ReactDOM, doric) {
     'use strict';
+
+    var React__default = 'default' in React ? React['default'] : React;
+    ReactDOM = ReactDOM && ReactDOM.hasOwnProperty('default') ? ReactDOM['default'] : ReactDOM;
+    doric = doric && doric.hasOwnProperty('default') ? doric['default'] : doric;
 
     var sorts = {
         string: (a, b) => {
@@ -12,297 +16,592 @@
             return 0;
         },
         number: (a, b) => a - b,
-        reverse: (func) => (a, b) => 0 - func(a, b),
+        reverse: (sortFunc) => (a, b) => -sortFunc(a, b),
         map: (mapFunc, sortFunc) => (a, b) => sortFunc(mapFunc(a), mapFunc(b)),
         prop: (propName, sortFunc) => {
-            const pfunc = new Function("source", `return source${propName}`);
-            return (a, b) => sortFunc(pfunc(a), pfunc(b));
+            const propFunc = new Function("source", `return source${propName}`);
+            return (a, b) => sortFunc(propFunc(a), propFunc(b));
         },
-        compose: (...funcs) => (a, b) => {
-            for (const sort of funcs) {
-                const pos = sort(a, b);
-                if (pos !== 0) {
-                    return pos;
+        compose: (...sortFuncs) => (a, b) => {
+            for (const sortFunc of sortFuncs) {
+                const compared = sortFunc(a, b);
+                if (compared !== 0) {
+                    return compared;
                 }
             }
             return 0;
-        }
+        },
+        natural: new Intl.Collator(undefined, {
+            numeric: true
+        }).compare
     };
 
-    var storage = {
-        read: (name, defValue) => {
-            const source = localStorage.getItem(name);
-            if (source === null) {
-                return defValue;
+    var arraySort = sorts;
+
+    const actions = {
+        $set: (source, value) => value,
+        $unset: (source, names) => {
+            const copy = {
+                ...source
+            };
+            for (const name of names) {
+                delete copy[name];
             }
-            return JSON.parse(source);
+            return copy;
         },
-        write: (name, data) => localStorage.setItem(name, JSON.stringify(data))
+        $push: (source, value) => [...source, value],
+        $append: (source, value) => [...source, ...value],
+        $apply: (source, func) => func(source),
+        $filter: (source, condition) => source.filter(condition),
+        $merge: (source, addition) => ({
+            ...source,
+            ...addition
+        })
     };
-
-    const sortInit = sorts.compose(
-        sorts.prop(".init", sorts.reverse(sorts.number)),
-        sorts.prop(".offset", sorts.reverse(sorts.number))
-    );
-    const { actions, ...store } = Norn(
-        {
-            inits: {
-                initial: () => storage.read("inits", []),
-                $add: (inits, { type, ...init }) => {
-                    const newInits = [...inits, init].sort(sortInit);
-                    return newInits;
-                },
-                $update: (inits, { type, id, ...info }) => {
-                    const index = inits.findIndex((i) => i.id === id);
-                    return immutableUpdate([...inits], {
-                        [`${index}.$apply`]: (value) => ({
-                            ...value,
-                            ...info
-                        })
-                    }).sort(sortInit);
-                },
-                $remove: (inits, { id }) => inits.filter((init) => init.id !== id)
-            }
-        },
-        {
-            "inits.$add": (name, init) => ({
-                name: name,
-                init: init,
-                offset: 0,
-                id: Date.now()
-            }),
-            "inits.$update": (id, info, name) => ({
-                id: id,
-                ...info,
-                name: name
-            }),
-            "inits.$remove": (id) => ({
-                id: id
-            })
+    const internal_copyObject = (obj, createIfVoid = false) => {
+        if (Array.isArray(obj) === true) {
+            return [...obj];
         }
-    );
-    store.subscribe(({ inits }) => storage.write("inits", inits));
-
-    const disp = (offset) =>
-        offset < 0 ? "-".repeat(-offset) : "+".repeat(offset);
-    const parse = (str) => {
-        const [, strValue, plus, minus] = str.match(/(\d+)(\++)?(\-+)?/);
-        const init = parseInt(strValue);
-        const offset = (() => {
-            switch (true) {
-                case plus === undefined && minus === undefined:
-                    return 0;
-                case plus !== undefined:
-                    return plus.length;
-                default:
-                    return 0 - minus.length;
-            }
-        })();
+        if (obj === undefined && createIfVoid === true) {
+            return {};
+        }
+        if (typeof obj !== "object" || obj === null) {
+            return obj;
+        }
+        if (obj instanceof Map) {
+            return new Map(obj);
+        }
+        if (obj instanceof Set) {
+            return new Set(obj);
+        }
+        if (obj.constructor !== Object) {
+            return obj;
+        }
         return {
-            init: init,
-            offset: offset
+            ...obj
         };
     };
-    var offset = {
-        disp: disp,
-        parse: parse
+    const internal_setValues = (dest, key, n, value, create) => {
+        const name = key[n];
+        if (n === key.length - 1) {
+            return actions[name](dest, value);
+        } else {
+            dest = internal_copyObject(dest, create);
+            dest[name] = internal_setValues(dest[name], key, n + 1, value, create);
+        }
+        return dest;
     };
-
-    class CreatureEdit extends React.Component {
-        constructor(props) {
-            super(props);
-            this.state = {
-                name: this.props.item.name,
-                init: `${this.props.item.init}${offset.disp(
-                this.props.item.offset
-            )}`
-            };
-        }
-        componentDidMount() {
-            this.input.focus();
-        }
-        render() {
-            const { name, init } = this.state;
-            const cancel = () => this.props.close(null);
-            const save = () => this.props.close(this.state);
-            const remove = async () => {
-                const confirmed = await doric.dialog.confirm("Remove from combat?");
-                if (confirmed === true) {
-                    actions["inits.$remove"](this.props.item.id);
-                    this.props.close(null);
-                }
-            };
-            const update = (name) => (evt) =>
-                this.setState({
-                    [name]: evt.target.value
-                });
-            const ref = (domInput) => {
-                this.input = domInput;
-            };
-            return React.createElement(
-                "alert-dialog",
-                {},
-                React.createElement(
-                    "alert-content",
-                    {
-                        wide: true
-                    },
-                    React.createElement(doric.input, {
-                        label: "Name",
-                        value: name,
-                        onChange: update("name")
-                    }),
-                    React.createElement(doric.input, {
-                        domRef: ref,
-                        label: "Initiative",
-                        value: init,
-                        onChange: update("init")
-                    })
+    const update = (source, obj, createIfUndefined = false) =>
+        Object.keys(obj).reduce(
+            (source, key) =>
+                internal_setValues(
+                    source,
+                    key.split("."),
+                    0,
+                    obj[key],
+                    createIfUndefined
                 ),
-                React.createElement(
-                    doric.grid,
-                    {
-                        cols: 3
-                    },
-                    React.createElement(
-                        doric.button,
-                        {
-                            block: true,
-                            danger: true,
-                            flat: true,
-                            onTap: cancel
-                        },
-                        React.createElement("ion-icons", {
-                            class: "ion-md-close"
-                        })
-                    ),
-                    React.createElement(
-                        doric.button,
-                        {
-                            block: true,
-                            danger: true,
-                            onTap: remove
-                        },
-                        React.createElement("ion-icons", {
-                            class: "ion-md-trash"
-                        })
-                    ),
-                    React.createElement(
-                        doric.button,
-                        {
-                            block: true,
-                            primary: true,
-                            onTap: save
-                        },
-                        React.createElement("ion-icons", {
-                            class: "ion-md-save"
-                        })
-                    )
-                )
+            source
+        );
+    update.actions = actions;
+
+    var immutableUpdate = update;
+
+    const cssNoMeasurement = new Set([
+        "animation-iteration-count",
+        "box-flex",
+        "box-flex-group",
+        "box-ordinal-group",
+        "column-count",
+        "fill-opacity",
+        "flex",
+        "flex-grow",
+        "flex-positive",
+        "flex-shrink",
+        "flex-negative",
+        "flex-order",
+        "font-weight",
+        "line-clamp",
+        "line-height",
+        "opacity",
+        "order",
+        "orphans",
+        "stop-opacity",
+        "stroke-dashoffset",
+        "stroke-opacity",
+        "stroke-width",
+        "tab-size",
+        "widows",
+        "z-index",
+        "zoom"
+    ]);
+    const cssPrefixes = ["-webkit-", "-moz-", "-ms-", "-o-", ""];
+    const prefixMap = ["user-select"].reduce(
+        (prefixes, name) => ({
+            ...prefixes,
+            [name]: cssPrefixes
+        }),
+        {}
+    );
+
+    const renderCSS = ([selector, valueBase], tab, depth, theme) => {
+        const tabString = tab.repeat(depth);
+
+        const parts = [];
+
+        if (Array.isArray(valueBase) === true) {
+            parts.push(`${tabString}${selector} {`);
+            parts.push(...valueBase.map(
+                value => renderCSS(value, tab, depth + 1, theme)
+            ));
+            parts.push(`${tabString}}`);
+        }
+        else {
+            const name = getCSSName(selector);
+            const value = getCSSValue(valueBase, name, theme);
+            if (value !== null) {
+                const selectors = getPrefixedSelector(name);
+                for (const _name of selectors) {
+                    for (const _value of value) {
+                        parts.push(`${tabString}${_name}: ${_value};`);
+                    }
+                }
+            }
+        }
+
+        return parts.join("\n");
+    };
+    const getPrefixedSelector = selector => (prefixMap[selector] || [""])
+        .map(prefix => `${prefix}${selector}`);
+    const getCSSName = name => name.replace(
+        /[A-Z]/g,
+        (s) => `-${s.toLowerCase()}`
+    );
+    const getCSSValue = (value, name, theme) => {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (typeof value === "function") {
+            return getCSSValue(value(theme), name, theme);
+        }
+
+        if (Array.isArray(value) === true) {
+            return value.map(
+                val => getCSSValue(val, name, theme)
             );
         }
-    }
 
-    const InitDisplay = ({ item }) =>
-        React.createElement(
-            doric.grid,
-            {
-                cols: 5
-            },
-            React.createElement("div", {}, item.init, offset.disp(item.offset)),
-            React.createElement(
-                "div",
-                {
-                    gcolspan: 4
-                },
-                item.name
-            )
-        );
+        if (value.toCSS !== undefined) {
+            return [value.toCSS()];
+        }
 
-    const connect = (app, reducer = (state, props) => state) => (Component) => {
+        if (typeof value === "number" && cssNoMeasurement.has(name) === false) {
+            return [`${value}px`];
+        }
 
-        return class extends React.PureComponent {
-            constructor(props) {
-                super(props);
-                this.state = reducer(app.state, this.props);
-                this.unsub = app.subscribe((newState) =>
-                    this.setState(() => reducer(newState, this.props))
-                );
-            }
-            componentWillUnmount() {
-                return this.unsub();
-            }
-            render() {
-                return React.createElement(Component, {
-                    ...{
-                        ...this.props,
-                        ...this.state
-                    }
-                });
-            }
-        };
+        return [value];
     };
-    const Main = connect(store)(
-        class Main extends React.Component {
-            async add() {
-                const name = await doric.dialog.prompt(``, "Name");
-                if (name === null) {
-                    return;
-                }
-                actions["inits.$add"](name, 0);
+
+    const prepObj = (obj, parent = "", current = [], top = []) => {
+        for (const [selectorBase, value] of Object.entries(obj)) {
+            const selector = selectorBase.replace(/&/g, parent);
+
+            if (parent === "" || selectorBase.indexOf("&") !== -1) {
+                const items = [];
+                top.push([selector, items]);
+                prepObj(value, selector, items, top);
             }
-            async edit(evt) {
-                const info = await doric.dialog.show(CreatureEdit, {
-                    item: evt.item
-                });
-                if (info === null) {
-                    return;
+            else {
+                if (typeof value === "object" && value.toCSS === undefined) {
+                    const items = [];
+                    current.push([selector, items]);
+                    prepObj(value, selector, items, top);
                 }
-                actions["inits.$update"](
-                    evt.item.id,
-                    offset.parse(info.init),
-                    info.name
-                );
-            }
-            render() {
-                const { inits } = this.props;
-                return React.createElement(
-                    "div",
-                    {},
-                    React.createElement(
-                        "div",
-                        {
-                            style: {
-                                position: "fixed",
-                                bottom: 0,
-                                right: 0
-                            }
-                        },
-                        React.createElement(
-                            doric.button,
-                            {
-                                primary: true,
-                                onTap: this.add,
-                                circle: 45
-                            },
-                            React.createElement("ion-icon", {
-                                class: "ion-md-add"
-                            })
-                        )
-                    ),
-                    React.createElement(doric.list, {
-                        items: inits,
-                        onItemTap: this.edit,
-                        itemRenderer: InitDisplay
-                    })
-                );
+                else {
+                    current.push([selector, value]);
+                }
             }
         }
+
+        return top;
+    };
+    const lerp = (from, to, by) => from + ((to - from) * by);
+    const sumsq = values => values.reduce((total, n) => total + (n ** 2), 0);
+    const blendValues = values => Math.sqrt(sumsq(values) / values.length);
+    const color = (r, g, b, a = 1) => ({
+        get r() {return r},
+        get g() {return g},
+        get b() {return b},
+        get a() {return a},
+        opacity: alpha => color(r, g, b, alpha),
+        invert: () => color(255 - r, 255 - g, 255 - b, a),
+        darken: factor => color(
+            lerp(r, 0, factor)|0,
+            lerp(g, 0, factor)|0,
+            lerp(b, 0, factor)|0,
+            a
+        ),
+        lighten: factor => color(
+            lerp(r, 255, factor)|0,
+            lerp(g, 255, factor)|0,
+            lerp(b, 255, factor)|0,
+            a
+        ),
+        toCSS: () => `rgba(${r}, ${g}, ${b}, ${a})`
+    });
+    color.fromHex = hex => {
+        if (hex.startsWith("#") === true) {
+            hex = hex.slice(1);
+        }
+        const [r, g, b, a] = (hex.length <= 4)
+            ? [
+                parseInt(hex.slice(0, 1).repeat(2), 16),
+                parseInt(hex.slice(1, 2).repeat(2), 16),
+                parseInt(hex.slice(2, 3).repeat(2), 16),
+                parseInt(hex.slice(3, 4).repeat(2) || "FF", 16) / 255,
+            ]
+            : [
+                parseInt(hex.slice(0, 2), 16),
+                parseInt(hex.slice(2, 4), 16),
+                parseInt(hex.slice(4, 6), 16),
+                parseInt(hex.slice(6, 8) || "FF", 16) / 255,
+            ];
+
+        return color(r, g, b, a);
+    };
+    color.blend = (...colors) => color(
+        blendValues(colors.map(c => c.r))|0,
+        blendValues(colors.map(c => c.g))|0,
+        blendValues(colors.map(c => c.b))|0,
+        blendValues(colors.map(c => c.a))
     );
 
-    ReactDOM.render(
-        React.createElement(Main, {}),
-        document.querySelector("app-root")
-    );
+    const initUpdate = (attrs) => {
+        if (typeof window !== "undefined") {
+            const element = document.createElement("style");
 
-}());
+            for (const [attr, value] of Object.entries(attrs)) {
+                element.setAttribute(attr, value);
+            }
+
+            document.querySelector("head").appendChild(element);
+
+            return css => {
+                element.innerHTML = css;
+                return css;
+            };
+        }
+
+        return css => css;
+    };
+    const sheet = (styles, attrs = {}) => {
+        const cssSource = prepObj(styles);
+
+        const update = initUpdate(attrs);
+
+        return {
+            generate: (theme, tab = "    ") => update(
+                cssSource
+                    .map(decl => renderCSS(decl, tab, 0, theme))
+                    .join("\n")
+            )
+        };
+    };
+
+    sheet.color = color;
+
+    var ssjs = sheet;
+
+    doric.generateCSS(doric.tronTheme);
+    const allyImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkkGT4DwABVAEaCjJriwAAAABJRU5ErkJggg==";
+    const enemyImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mOUZGD4DwABbQEafpSlYQAAAABJRU5ErkJggg==";
+    const bg = {
+      ally: {
+        backgroundColor: ssjs.color(0, 25, 0)
+      },
+      enemy: {
+        backgroundColor: ssjs.color(25, 0, 0)
+      }
+    };
+    ssjs({
+      "doric-title": {
+        "& > span": {
+          color: "lightgray",
+          fontSize: 14
+        }
+      },
+      "doric-button": {
+        "&.bordered": {
+          border: `2px solid ${doric.tronTheme["color.primary"]}`
+        },
+        "&:not(.bordered) > ion-icon": {
+          marginRight: 4
+        }
+      },
+      "media-flex": {
+        display: "flex",
+        alignItems: "stretch",
+        height: "100%",
+        "& > *": {
+          flexGrow: 1
+        }
+      },
+      "doric-panel": {
+        "&[type='ally']": { ...bg.ally,
+          "& doric-title": bg.ally
+        },
+        "&[type='enemy']": { ...bg.enemy,
+          "& doric-title": bg.enemy
+        }
+      },
+      "select": {
+        WebkitAppearance: "none"
+      }
+    }).generate();
+    const initSort = arraySort.reverse(arraySort.compose(arraySort.prop(".init.value", arraySort.number), arraySort.prop(".init.mod", arraySort.number)));
+    const {
+      store,
+      actions: actions$1
+    } = Norn({
+      units: {
+        initial: [{
+          type: "enemy",
+          name: "Enemy 1",
+          init: {
+            value: 12,
+            mod: 2
+          }
+        }, {
+          type: "ally",
+          name: "Ally 1",
+          init: {
+            value: 12,
+            mod: 1
+          }
+        }, {
+          type: "ally",
+          name: "Ally 2",
+          init: {
+            value: 15,
+            mod: -1
+          }
+        }].sort(initSort),
+        $update: (units, {
+          oldUnit,
+          newUnit
+        }) => immutableUpdate(units, {
+          [`${units.indexOf(oldUnit)}.$set`]: newUnit
+        }).sort(initSort),
+        $delete: (units, {
+          removeUnit
+        }) => units.filter(unit => unit !== removeUnit)
+      }
+    }, {
+      "units.$update": (oldUnit, newUnit) => ({
+        oldUnit,
+        newUnit
+      }),
+      "units.$delete": removeUnit => ({
+        removeUnit
+      })
+    });
+
+    const formatInit = ({
+      value,
+      mod
+    }) => {
+      const plus = "+".repeat(Math.max(0, mod));
+      const minus = "-".repeat(Math.max(0, -mod));
+      return `${value}${plus}${minus}`;
+    };
+
+    const parseInit = stringValue => {
+      const info = /^(?<value>\-?\d+)(?<plus>\+*)(?<minus>\-*)$/.exec(stringValue);
+      const value = parseInt(info.groups.value, 10);
+      const mod = info.groups.plus.length - info.groups.minus.length;
+      return {
+        value,
+        mod
+      };
+    };
+
+    const useMount = effect => React.useEffect(effect, []);
+
+    const useInputState = (initialValue, allow = () => true) => {
+      const [value, update] = React.useState(initialValue);
+      return [value, evt => {
+        const updated = evt.target.value;
+
+        if (allow(updated) === true) {
+          update(updated);
+        }
+      }];
+    };
+
+    const useSelectState = initialValue => {
+      const [value, update] = React.useState(initialValue);
+      return [value, evt => update(evt.value)];
+    };
+
+    const typeOptions = [{
+      label: "Ally",
+      value: "ally"
+    }, {
+      label: "Enemy",
+      value: "enemy"
+    }];
+
+    function CharacterEdit(props) {
+      const inputRef = React.useRef();
+
+      const close = () => props.close(null);
+
+      const [name, updateName] = useInputState(props.unit.name);
+      const [init, updateInit] = useInputState(formatInit(props.unit.init), value => value.match(/^([0-9]+(\+*|\-*))?$/) !== null);
+      const [type, updateType] = useSelectState(props.unit.type);
+
+      const submit = () => {
+        if (name.trim() === "") {
+          return;
+        }
+
+        props.close({
+          name,
+          type,
+          init: parseInit(init)
+        });
+      };
+
+      useMount(() => {
+        inputRef.current.focus();
+      });
+      return React__default.createElement(doric.Panel, null, React__default.createElement(doric.Input, {
+        label: "Name",
+        ref: inputRef,
+        value: name,
+        onChange: updateName
+      }), React__default.createElement(doric.Input, {
+        label: "Initiative",
+        value: init,
+        onChange: updateInit
+      }), React__default.createElement(doric.Select, {
+        label: "Unit Type",
+        value: type,
+        onChange: updateType,
+        options: typeOptions
+      }), React__default.createElement(doric.Panel.actions, null, React__default.createElement(doric.Button, {
+        danger: true,
+        flat: true,
+        text: "Cancel",
+        onTap: close
+      }), React__default.createElement(doric.Button, {
+        primary: true,
+        flat: true,
+        text: "Ok",
+        onTap: submit
+      })));
+    }
+
+    doric.Dialog.register("character", CharacterEdit, {
+      unit: {
+        name: "",
+        init: {
+          value: 0,
+          mod: 0
+        }
+      },
+      window: {
+        class: ["top", "small"]
+      }
+    });
+    const UnitDisplay = React.memo(function UnitDisplay(props) {
+      const {
+        unit
+      } = props;
+
+      const remove = async () => {
+        const confirmed = await doric.Dialog.confirm({
+          message: `Remove ${unit.name} from initiative?`,
+          title: null,
+          center: true,
+          okButton: "Yes",
+          cancelButton: "No"
+        });
+
+        if (confirmed === false) {
+          return;
+        }
+
+        actions$1["units.$delete"](unit);
+      };
+
+      const edit = async () => {
+        const newUnit = await doric.Dialog.character({
+          unit
+        });
+
+        if (newUnit === null) {
+          return;
+        }
+
+        actions$1["units.$update"](unit, newUnit);
+      };
+
+      const initDisplay = formatInit(unit.init);
+      const imageURL = unit.type === "ally" ? allyImage : enemyImage;
+      return React__default.createElement(doric.Panel, {
+        type: unit.type
+      }, React__default.createElement(doric.Title, {
+        title: unit.name,
+        subtitle: initDisplay
+      }), React__default.createElement(doric.Panel.media, null, React__default.createElement("media-flex", null, React__default.createElement(doric.Button, {
+        primary: true,
+        flat: true,
+        block: true,
+        bordered: true,
+        icon: "ion-md-create",
+        onTap: edit
+      }), React__default.createElement(doric.Button, {
+        danger: true,
+        flat: true,
+        block: true,
+        bordered: true,
+        icon: "ion-md-trash",
+        onTap: remove
+      }))));
+    });
+    const Main = NornConnectHook(store)(function Main(props) {
+      const addChar = async () => {
+        const newChar = await doric.Dialog.character();
+        console.log(newChar);
+      };
+
+      return React__default.createElement("div", {
+        style: {
+          width: 480,
+          maxWidth: "100%",
+          margin: "auto"
+        }
+      }, React__default.createElement(doric.Navbar, {
+        title: "Init Manager"
+      }), React__default.createElement("div", {
+        style: {
+          position: "fixed",
+          bottom: 4,
+          right: 4
+        }
+      }, React__default.createElement(doric.Button, {
+        primary: true,
+        flat: true,
+        bordered: true,
+        circle: 48,
+        icon: "ion-md-add",
+        onTap: addChar
+      })), props.units.map(unit => React__default.createElement(UnitDisplay, {
+        unit: unit
+      })));
+    });
+    ReactDOM.render(React__default.createElement(Main, null), document.querySelector("app-root"));
+
+}(React, ReactDOM, doric));
