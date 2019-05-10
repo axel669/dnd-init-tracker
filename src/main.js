@@ -7,6 +7,23 @@ import ssjs from "ssjs";
 
 doric.generateCSS(doric.tronTheme);
 
+const storage = {
+    read: (name, defValue) => {
+        let source = localStorage.getItem(name);
+
+        if (source === null) {
+            return defValue;
+        }
+
+        return JSON.parse(source);
+    },
+    write: (name, data) => localStorage.setItem(
+        name,
+        JSON.stringify(data)
+    )
+};
+
+
 const allyImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkkGT4DwABVAEaCjJriwAAAABJRU5ErkJggg==";
 const enemyImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mOUZGD4DwABbQEafpSlYQAAAABJRU5ErkJggg==";
 
@@ -67,24 +84,25 @@ const initSort = sort.reverse(
 const {store, actions} = Norn(
     {
         units: {
-            initial: [
-                {type: "enemy", name: "Enemy 1", init: {value: 12, mod: 2}},
-                {type: "ally", name: "Ally 1", init: {value: 12, mod: 1}},
-                {type: "ally", name: "Ally 2", init: {value: 15, mod: -1}},
-            ].sort(initSort),
+            initial: storage.read("units", []),
             $update: (units, {oldUnit, newUnit}) => update(
                 units,
                 {[`${units.indexOf(oldUnit)}.$set`]: newUnit}
             ).sort(initSort),
             $delete: (units, {removeUnit}) => units.filter(
                 unit => unit !== removeUnit
-            )
+            ),
+            $add: (units, {newUnit}) => [...units, newUnit].sort(initSort)
         }
     },
     {
         "units.$update": (oldUnit, newUnit) => ({oldUnit, newUnit}),
-        "units.$delete": (removeUnit) => ({removeUnit})
+        "units.$delete": (removeUnit) => ({removeUnit}),
+        "units.$add": (newUnit) => ({newUnit})
     }
+);
+store.subscribe(
+    state => storage.write("units", state.units)
 );
 
 const formatInit = ({value, mod}) => {
@@ -168,7 +186,8 @@ doric.Dialog.register(
     {
         unit: {
             name: "",
-            init: {value: 0, mod: 0}
+            init: {value: 0, mod: 0},
+            type: "ally"
         },
         window: {
             class: ["top", "small"]
@@ -233,22 +252,27 @@ const UnitDisplay = memo(
 const Main = NornConnectHook(store)(
     function Main(props) {
         const addChar = async () => {
-            const newChar = await doric.Dialog.character();
+            const newUnit = await doric.Dialog.character();
 
-            console.log(newChar);
+            if (newUnit === null) {
+                return;
+            }
+
+            actions["units.$add"](newUnit);
         };
 
-        return <div style={{width: 480, maxWidth: "100%", margin: "auto"}}>
+        return <div style={{width: 480, maxWidth: "100%", margin: "auto", position: "relative"}}>
             <doric.Navbar title="Init Manager" />
-            <div style={{position: "fixed", bottom: 4, right: 4}}>
-                <doric.Button primary flat bordered
-                    circle={48}
+            <div style={{position: "sticky", zIndex: "+5", top: 40, backgroundColor: "black", padding: 2}}>
+                <doric.Button
+                    primary flat bordered block
                     icon="ion-md-add"
+                    text="Add Unit"
                     onTap={addChar}
                 />
             </div>
             {props.units.map(
-                unit => <UnitDisplay unit={unit} />
+                (unit, index) => <UnitDisplay key={index} unit={unit} />
             )}
         </div>
     }
